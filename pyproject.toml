@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-chat"
+version = "0.1.0"
+description = "Encrypted social chat for Claude Code users"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=1.0",
+    "supabase>=2.0",
+    "pynacl>=1.5",
+    "argon2-cffi>=23.1",
+]
+
+[project.scripts]
+claude-chat = "claude_chat.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+claude_chat = ["assets/*.wav", "styles/*.tcss"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
