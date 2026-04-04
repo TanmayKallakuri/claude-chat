@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from textual import on, work
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widget import Widget
 from textual.widgets import Button, Input, Label, Static
 
 
-class SearchPanel(Static):
+class SearchPanel(Widget):
     """Search for users and send friend requests.
 
     Contains a search input, results list with Send Request buttons,
@@ -19,47 +20,24 @@ class SearchPanel(Static):
         width: 100%;
         height: 100%;
     }
-
-    SearchPanel #search-input {
-        width: 100%;
-        margin: 1;
-        background: #0e0e1a;
-        color: #e0e0e0;
-        border: none;
-        border-bottom: solid #444444;
-    }
-
-    SearchPanel #search-input:focus {
-        border-bottom: solid #00ffc8;
-    }
-
     SearchPanel #search-results {
         width: 100%;
         height: 1fr;
     }
-
     SearchPanel .result-row {
         height: auto;
         padding: 0 1;
     }
-
     SearchPanel .result-row Label {
         width: 1fr;
+    }
+    SearchPanel #search-status {
+        color: #666666;
         padding: 0 1;
     }
-
-    SearchPanel .result-row Button {
-        min-width: 16;
-    }
-
-    SearchPanel #search-status {
-        color: #888888;
-        padding: 1;
-    }
-
     SearchPanel #rate-limit {
-        color: #888888;
-        padding: 0 1 1 1;
+        color: #666666;
+        padding: 0 1;
     }
     """
 

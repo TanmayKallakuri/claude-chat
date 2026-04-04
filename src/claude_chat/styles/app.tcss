@@ -1,4 +1,33 @@
 Screen {
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: #191919;
+    color: #d4d4d4;
+}
+
+Input {
+    background: #252525;
+    color: #d4d4d4;
+    border: tall #333333;
+    padding: 0 1;
+    height: 3;
+}
+
+Input:focus {
+    border: tall #666666;
+}
+
+Button {
+    background: #333333;
+    color: #d4d4d4;
+    border: none;
+    min-width: 10;
+    height: 3;
+}
+
+Button:hover {
+    background: #444444;
+}
+
+Button.-primary {
+    background: #444444;
+    color: #ffffff;
 }

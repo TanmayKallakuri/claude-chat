@@ -119,19 +119,24 @@ class ChatClient:
         3. INSERT into public.users
         4. Set internal state
         """
-        email = f"{claude_id}@claude-chat.local"
+        email = f"{claude_id}@claudechat.app"
 
         try:
             auth_response = self._supabase.auth.sign_up(
                 {"email": email, "password": passphrase}
             )
         except Exception as exc:
-            raise ValueError(f"Registration failed: {exc}") from exc
+            msg = str(exc).replace(email, claude_id)
+            if "email" in msg.lower():
+                msg = "Registration failed: that claude_id may already be taken"
+            else:
+                msg = f"Registration failed: {msg}"
+            raise ValueError(msg) from exc
 
         user = auth_response.user
         if user is None:
             raise ValueError(
-                "Registration failed: claude_id may already be taken"
+                "Registration failed: that claude_id may already be taken"
             )
 
         user_id = user.id
@@ -157,14 +162,19 @@ class ChatClient:
 
     def login(self, claude_id: str, passphrase: str) -> str:
         """Login an existing user. Returns user_id."""
-        email = f"{claude_id}@claude-chat.local"
+        email = f"{claude_id}@claudechat.app"
 
         try:
             auth_response = self._supabase.auth.sign_in_with_password(
                 {"email": email, "password": passphrase}
             )
         except Exception as exc:
-            raise ValueError(f"Login failed: {exc}") from exc
+            msg = str(exc).replace(email, claude_id)
+            if "email" in msg.lower() or "credentials" in msg.lower():
+                msg = "Invalid claude_id or passphrase"
+            else:
+                msg = f"Login failed: {msg}"
+            raise ValueError(msg) from exc
 
         user = auth_response.user
         if user is None:

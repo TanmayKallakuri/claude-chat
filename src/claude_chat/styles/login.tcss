@@ -1,15 +1,13 @@
 #login-container {
     align: center middle;
     width: 50;
-    max-width: 60;
     height: auto;
     padding: 1 2;
 }
 
 #title {
     text-align: center;
-    color: #00ffc8;
-    text-style: bold;
+    color: #888888;
     width: 100%;
     margin-bottom: 1;
 }
@@ -30,19 +28,6 @@
     color: #888888;
 }
 
-#login-container Input {
-    background: #0e0e1a;
-    color: #e0e0e0;
-    border: none;
-    border-bottom: solid #444444;
-    width: 100%;
-    padding: 0 1;
-}
-
-#login-container Input:focus {
-    border-bottom: solid #00ffc8;
-}
-
 #btn-submit {
     margin-top: 1;
     width: 100%;
@@ -50,11 +35,10 @@
 
 #passphrase-warning {
     margin-top: 1;
-    color: #ff8800;
-    text-style: italic;
+    color: #cc7700;
 }
 
 #status {
     margin-top: 1;
-    color: #aaaaaa;
+    color: #888888;
 }

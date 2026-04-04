@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from textual import on
 from textual.message import Message as TMessage
+from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
 
-class ReadList(Static):
+class ReadList(Widget):
     """Shows all connections with last message preview.
 
     tanmay_k -- hey check this out -- 2m ago

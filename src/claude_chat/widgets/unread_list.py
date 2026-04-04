@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from textual import on, work
 from textual.message import Message as TMessage
+from textual.widget import Widget
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
 
-class UnreadList(Static):
+class UnreadList(Widget):
     """Shows unread messages grouped by sender.
 
     Each item displays the sender's claude_id, unread count, and latest

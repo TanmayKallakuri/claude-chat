@@ -1,26 +1,18 @@
-/* Chat view styles */
-
-ChatView {
-    background: #1a1a2e;
-    color: #e0e0e0;
-}
-
 #chat-header {
     dock: top;
     width: 100%;
-    height: 3;
-    background: #0e0e1a;
-    color: #4ecca3;
-    text-style: bold;
-    content-align: center middle;
-    border-bottom: solid #333333;
+    height: 1;
+    background: #1e1e1e;
+    color: #888888;
+    content-align: left middle;
+    padding: 0 1;
 }
 
 #message-container {
     width: 100%;
     height: 1fr;
-    background: #1a1a2e;
-    scrollbar-background: #1a1a2e;
+    background: #191919;
+    scrollbar-background: #191919;
     scrollbar-color: #333333;
     padding: 0;
 }
@@ -35,13 +27,17 @@ MessageLine {
     dock: bottom;
     width: 100%;
     height: 3;
-    background: #0e0e1a;
-    color: #e0e0e0;
-    border: none;
-    border-top: solid #333333;
+    background: #252525;
+    color: #d4d4d4;
+    border: tall #333333;
     padding: 0 1;
 }
 
 #message-input:focus {
-    border-top: solid #4ecca3;
+    border: tall #666666;
+}
+
+#empty-chat {
+    color: #666666;
+    padding: 1;
 }

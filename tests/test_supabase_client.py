@@ -103,7 +103,7 @@ class TestRegister:
 
         # Verify auth.sign_up was called correctly
         mock_sb.auth.sign_up.assert_called_once_with(
-            {"email": f"{ALICE_ID}@claude-chat.local", "password": ALICE_PASS}
+            {"email": f"{ALICE_ID}@claudechat.app", "password": ALICE_PASS}
         )
 
         # Verify users table insert was called
@@ -140,14 +140,14 @@ class TestLogin:
         assert isinstance(client._private_key, PrivateKey)
 
         mock_sb.auth.sign_in_with_password.assert_called_once_with(
-            {"email": f"{ALICE_ID}@claude-chat.local", "password": ALICE_PASS}
+            {"email": f"{ALICE_ID}@claudechat.app", "password": ALICE_PASS}
         )
 
     def test_login_raises_on_bad_credentials(self, client):
         mock_sb = client._mock_sb
         mock_sb.auth.sign_in_with_password.side_effect = Exception("Invalid credentials")
 
-        with pytest.raises(ValueError, match="Login failed"):
+        with pytest.raises(ValueError, match="Invalid claude_id or passphrase"):
             client.login(ALICE_ID, "wrong-password")
 
 

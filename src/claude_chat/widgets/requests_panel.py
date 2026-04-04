@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from textual import on, work
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widget import Widget
 from textual.widgets import Button, Label, Static
 
 
@@ -30,7 +31,7 @@ def _relative_time(dt: datetime | None) -> str:
     return f"{days}d ago"
 
 
-class RequestsPanel(Static):
+class RequestsPanel(Widget):
     """Shows incoming and outgoing friend requests.
 
     Incoming requests have Accept / Reject buttons.
@@ -42,42 +43,29 @@ class RequestsPanel(Static):
         width: 100%;
         height: 100%;
     }
-
     RequestsPanel .section-header {
-        color: #4ecca3;
-        text-style: bold;
+        color: #888888;
         padding: 1 1 0 1;
     }
-
     RequestsPanel .request-row {
         height: auto;
         padding: 0 1;
     }
-
     RequestsPanel .request-row Label {
         width: 1fr;
-        padding: 0 1;
     }
-
     RequestsPanel .request-actions {
         height: auto;
         width: auto;
     }
-
-    RequestsPanel .request-actions Button {
-        min-width: 10;
-        margin: 0 1;
-    }
-
     RequestsPanel #requests-empty {
-        color: #888888;
-        padding: 2;
+        color: #666666;
+        padding: 1;
     }
-
     RequestsPanel .outgoing-item {
         height: auto;
-        padding: 0 2;
-        color: #888888;
+        padding: 0 1;
+        color: #666666;
     }
     """
 

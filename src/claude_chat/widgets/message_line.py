@@ -36,5 +36,4 @@ class MessageLine(Static):
 
     def render(self) -> str:
         name = "you" if self.is_self else self.sender
-        style = "bold #4ecca3" if self.is_self else "bold"
-        return f"[dim][{self.timestamp}][/dim] [{style}]{name}[/{style}]: {self.text}"
+        return f"[dim]{self.timestamp}[/dim] [bold]{name}[/bold]: {self.text}"
