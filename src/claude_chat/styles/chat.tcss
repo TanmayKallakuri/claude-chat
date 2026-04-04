@@ -26,11 +26,11 @@ MessageLine {
 #message-input {
     dock: bottom;
     width: 100%;
-    height: 3;
+    height: 5;
+    max-height: 10;
     background: #252525;
     color: #d4d4d4;
     border: tall #333333;
-    padding: 0 1;
 }
 
 #message-input:focus {

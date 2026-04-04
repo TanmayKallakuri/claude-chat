@@ -6,7 +6,8 @@ from textual import work
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Input, Static
+from textual.binding import Binding
+from textual.widgets import Input, Static, TextArea
 
 from claude_chat.widgets.message_line import MessageLine
 
@@ -21,6 +22,7 @@ class ChatView(Screen):
     BINDINGS = [
         ("escape", "go_back", "Back"),
         ("f2", "show_safety_number", "Verify"),
+        Binding("ctrl+s", "send_input", "Send", show=True),
     ]
 
     def __init__(self, user_id: str, claude_id: str) -> None:
@@ -32,7 +34,7 @@ class ChatView(Screen):
     def compose(self) -> ComposeResult:
         yield Static(f" Chat with {self.other_claude_id} ", id="chat-header")
         yield VerticalScroll(id="message-container")
-        yield Input(placeholder="Type a message...", id="message-input")
+        yield TextArea(id="message-input")
 
     def on_mount(self) -> None:
         self.load_messages()
@@ -121,12 +123,15 @@ class ChatView(Screen):
     # Sending messages
     # ------------------------------------------------------------------
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        """Send message on Enter."""
-        text = event.value.strip()
+    def action_send_input(self) -> None:
+        """Send message on Ctrl+S."""
+        try:
+            ta = self.query_one("#message-input", TextArea)
+        except Exception:
+            return
+        text = ta.text.strip()
         if text:
-            event.input.clear()
-            self.notify("Sending...", severity="information")
+            ta.clear()
             self.send_message(text)
 
     @work(thread=True)
