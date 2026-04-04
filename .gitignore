@@ -6,4 +6,6 @@ build/
 .pytest_cache/
 *.egg
 .env
+.env.*
+!.env.example
 .device_key

@@ -1,12 +1,25 @@
+import os
 from pathlib import Path
 
 # Local storage
 CHAT_DIR = Path.home() / ".claude" / "chat"
 SESSION_FILE = CHAT_DIR / "session.json"
+ENV_FILE = CHAT_DIR / ".env"
 
-# Supabase (anon key is publishable — RLS protects data)
-SUPABASE_URL = "https://mesdgreuqahudqxjhgkt.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lc2RncmV1cWFodWRxeGpoZ2t0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNzk3MjIsImV4cCI6MjA5MDg1NTcyMn0.cXtHEajae-Xj7icMdqMWnhQW6-rdxXyZKE5BmStT2Q0"
+def _load_env() -> None:
+    """Load environment variables from ~/.claude/chat/.env if it exists."""
+    if ENV_FILE.is_file():
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
+_load_env()
+
+# Supabase
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
 # Constraints
 MAX_REQUESTS_PER_DAY = 3
@@ -21,10 +34,10 @@ CURRENT_KDF_VERSION = 1
 SESSION_EXPIRY_DAYS = 7
 
 # Pusher (real-time message delivery)
-PUSHER_APP_ID = "2136945"
-PUSHER_KEY = "289abe33362ab3faebd8"
-PUSHER_SECRET = "8086438850b5ee87cf8c"
-PUSHER_CLUSTER = "us3"
+PUSHER_APP_ID = os.environ.get("PUSHER_APP_ID", "")
+PUSHER_KEY = os.environ.get("PUSHER_KEY", "")
+PUSHER_SECRET = os.environ.get("PUSHER_SECRET", "")
+PUSHER_CLUSTER = os.environ.get("PUSHER_CLUSTER", "")
 
 
 def ensure_chat_dir() -> Path:
