@@ -77,8 +77,8 @@ pytest
 Building in public. Current progress:
 
 - [x] Phase 1: Foundation (crypto, models, config, session) — 35 tests
-- [ ] Phase 2: Supabase backend (schema, client, realtime)
-- [ ] Phase 3: TUI auth flow (register/login screens)
-- [ ] Phase 4: TUI main interface (tabs, chat view, widgets)
-- [ ] Phase 5: Real-time and notifications
-- [ ] Phase 6: Polish and packaging
+- [x] Phase 2: Supabase backend (schema, RLS, client) — 16 tests
+- [x] Phase 3: TUI auth flow (register/login with auto-login)
+- [x] Phase 4: TUI main interface (4 tabs, chat view, 5 widgets)
+- [x] Phase 5: Real-time subscriptions, polling fallback, sound notifications
+- [x] Phase 6: Claude Code `/chat` skill, UX polish, empty states

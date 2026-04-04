@@ -109,7 +109,7 @@ class RequestsPanel(Static):
 
         if not incoming:
             incoming_container.mount(
-                Static("No incoming requests", id="requests-empty")
+                Static("No pending requests.", id="requests-empty")
             )
         else:
             for req in incoming:

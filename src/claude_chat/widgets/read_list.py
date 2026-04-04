@@ -48,7 +48,7 @@ class ReadList(Static):
             super().__init__()
 
     def compose(self):
-        yield Static("No connections yet", id="read-empty")
+        yield Static("No connections yet. Search for friends to get started!", id="read-empty")
         yield OptionList(id="read-option-list")
 
     def on_mount(self) -> None:

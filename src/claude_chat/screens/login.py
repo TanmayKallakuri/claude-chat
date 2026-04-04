@@ -175,7 +175,7 @@ class LoginScreen(Screen):
             else:
                 user_id = client.login(claude_id, passphrase)
         except (ValueError, RuntimeError) as exc:
-            self.app.call_from_thread(self._set_status, str(exc))
+            self.app.call_from_thread(self._on_auth_failure, str(exc))
             return
 
         # Persist session
@@ -186,11 +186,26 @@ class LoginScreen(Screen):
 
         self.app.call_from_thread(self._on_auth_success, claude_id)
 
+    def _on_auth_failure(self, message: str) -> None:
+        """Handle auth failure: clear cached session and show the login form."""
+        from claude_chat.session import clear_session
+
+        clear_session()
+        self._set_status(message)
+
+        # Reset fields so user can try again cleanly
+        self.query_one("#input-passphrase", Input).value = ""
+        self.query_one("#input-confirm", Input).value = ""
+
     def _on_auth_success(self, claude_id: str) -> None:
         """Transition to the main screen after successful auth."""
+        self._set_status(f"Logged in as {claude_id}!")
+        self.set_timer(1.0, self._go_to_main)
+
+    def _go_to_main(self) -> None:
+        """Push main screen after brief delay so user sees login confirmation."""
         from claude_chat.screens.main import MainScreen
 
-        self._set_status(f"Logged in as {claude_id}!")
         self.app.push_screen(MainScreen())
 
     # ------------------------------------------------------------------

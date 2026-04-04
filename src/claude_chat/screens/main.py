@@ -7,12 +7,13 @@ from datetime import datetime, timezone
 from textual import on, work
 from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.widgets import Footer, Header, TabbedContent, TabPane
+from textual.widgets import Footer, Header, Tab, TabbedContent, TabPane
 
 from claude_chat.widgets.unread_list import UnreadList
 from claude_chat.widgets.read_list import ReadList
 from claude_chat.widgets.requests_panel import RequestsPanel
 from claude_chat.widgets.search_panel import SearchPanel
+from claude_chat.notifications import play_chime
 
 
 def _relative_time(dt: datetime | None) -> str:
@@ -60,8 +61,59 @@ class MainScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        """Load initial data for all tabs."""
+        """Load initial data for all tabs and start real-time subscriptions."""
+        self._unread_count = 0
         self.load_data()
+        self._start_realtime()
+        # Polling fallback every 10 seconds in case realtime drops
+        self.set_interval(10, self.load_data)
+
+    def on_screen_resume(self) -> None:
+        """Refresh data when returning from ChatView."""
+        self.load_data()
+
+    # ------------------------------------------------------------------
+    # Realtime subscriptions
+    # ------------------------------------------------------------------
+
+    @work(thread=True)
+    def _start_realtime(self) -> None:
+        """Subscribe to incoming messages and friend requests via Supabase Realtime."""
+        client = self.app.client
+        try:
+            client.subscribe_messages(self._on_realtime_message)
+        except Exception:
+            pass
+        try:
+            client.subscribe_requests(self._on_realtime_request)
+        except Exception:
+            pass
+
+    def _on_realtime_message(self, msg) -> None:
+        """Callback fired by Supabase Realtime on new incoming message."""
+        play_chime("message")
+        # Check if ChatView for this sender is currently on screen
+        self.app.call_from_thread(self._handle_realtime_message, msg)
+
+    def _handle_realtime_message(self, msg) -> None:
+        """Process an incoming realtime message on the main thread."""
+        from claude_chat.screens.chat_view import ChatView
+
+        # If the active screen is ChatView for this sender, append the message there
+        current = self.app.screen
+        if (
+            isinstance(current, ChatView)
+            and current.other_user_id == msg.sender_id
+        ):
+            current.append_realtime_message(msg)
+        else:
+            # Otherwise just refresh unread data
+            self.load_data()
+
+    def _on_realtime_request(self, req) -> None:
+        """Callback fired by Supabase Realtime on new friend request."""
+        play_chime("request")
+        self.app.call_from_thread(self.load_data)
 
     # ------------------------------------------------------------------
     # Data loading
@@ -137,6 +189,24 @@ class MainScreen(Screen):
 
         try:
             self.query_one(SearchPanel).update_rate_limit(len(outgoing))
+        except Exception:
+            pass
+
+        # Update the Unread tab label with the count
+        total_unread = sum(len(msgs) for msgs in unread_grouped.values())
+        self._unread_count = total_unread
+        self._update_unread_tab_label(total_unread)
+
+    def _update_unread_tab_label(self, count: int) -> None:
+        """Set the Unread tab title to include the count when > 0."""
+        try:
+            tab_pane = self.query_one("#unread-tab", TabPane)
+            # Textual TabPane stores label; find the matching Tab widget
+            tabs = self.query(Tab)
+            for tab in tabs:
+                if tab.id == "--content-tab-unread-tab":
+                    tab.label = f"Unread ({count})" if count > 0 else "Unread"
+                    break
         except Exception:
             pass
 

@@ -46,7 +46,7 @@ class UnreadList(Static):
             super().__init__()
 
     def compose(self):
-        yield Static("No unread messages", id="unread-empty")
+        yield Static("All caught up! No unread messages.", id="unread-empty")
         yield OptionList(id="unread-option-list")
 
     def on_mount(self) -> None:

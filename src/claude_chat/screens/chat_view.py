@@ -72,6 +72,15 @@ class ChatView(Screen):
         container = self.query_one("#message-container", VerticalScroll)
         container.remove_children()
 
+        if not messages:
+            container.mount(
+                Static(
+                    "No messages yet. Say hi!",
+                    id="empty-chat-placeholder",
+                )
+            )
+            return
+
         my_id = self.app.client._user_id
 
         for msg in messages:
@@ -103,8 +112,9 @@ class ChatView(Screen):
         """Send message on Enter."""
         text = event.value.strip()
         if text:
-            self.send_message(text)
             event.input.clear()
+            self.notify("Sending...", severity="information")
+            self.send_message(text)
 
     @work(thread=True)
     def send_message(self, text: str) -> None:
@@ -124,6 +134,13 @@ class ChatView(Screen):
         """Add a sent message to the container and scroll down."""
         container = self.query_one("#message-container", VerticalScroll)
 
+        # Remove empty-chat placeholder if present
+        try:
+            placeholder = container.query_one("#empty-chat-placeholder", Static)
+            placeholder.remove()
+        except Exception:
+            pass
+
         timestamp = ""
         if msg.created_at is not None:
             timestamp = msg.created_at.strftime("%H:%M")
@@ -137,6 +154,42 @@ class ChatView(Screen):
             )
         )
         container.scroll_end(animate=False)
+
+    # ------------------------------------------------------------------
+    # Real-time incoming messages
+    # ------------------------------------------------------------------
+
+    def append_realtime_message(self, msg) -> None:
+        """Append a message received via realtime subscription and mark it read.
+
+        Called from MainScreen._handle_realtime_message on the main thread.
+        """
+        container = self.query_one("#message-container", VerticalScroll)
+
+        timestamp = ""
+        if msg.created_at is not None:
+            timestamp = msg.created_at.strftime("%H:%M")
+
+        container.mount(
+            MessageLine(
+                timestamp=timestamp,
+                sender=self.other_claude_id,
+                text=msg.plaintext or "[encrypted]",
+                is_self=False,
+            )
+        )
+        container.scroll_end(animate=False)
+
+        # Mark as read immediately since the chat is open
+        self._mark_ids_as_read([msg.id])
+
+    @work(thread=True)
+    def _mark_ids_as_read(self, message_ids: list[str]) -> None:
+        """Mark specific message IDs as read in a worker thread."""
+        try:
+            self.app.client.mark_as_read(message_ids)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Navigation
