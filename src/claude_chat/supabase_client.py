@@ -367,22 +367,31 @@ class ChatClient:
             receiver_pub, plaintext
         )
 
-        try:
-            response = (
-                self._supabase.table("messages")
-                .insert(
-                    {
-                        "sender_id": self._user_id,
-                        "receiver_id": receiver_id,
-                        "encrypted_content": _bytes_to_db(ciphertext),
-                        "nonce": _bytes_to_db(nonce),
-                        "ephemeral_public_key": _bytes_to_db(ephemeral_pub_bytes),
-                    }
+        import time
+
+        last_exc = None
+        for attempt in range(3):
+            try:
+                response = (
+                    self._supabase.table("messages")
+                    .insert(
+                        {
+                            "sender_id": self._user_id,
+                            "receiver_id": receiver_id,
+                            "encrypted_content": _bytes_to_db(ciphertext),
+                            "nonce": _bytes_to_db(nonce),
+                            "ephemeral_public_key": _bytes_to_db(ephemeral_pub_bytes),
+                        }
+                    )
+                    .execute()
                 )
-                .execute()
-            )
-        except Exception as exc:
-            raise RuntimeError(f"Failed to send message: {exc}") from exc
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < 2:
+                    time.sleep(0.5)
+        else:
+            raise RuntimeError(f"Failed to send message: {last_exc}") from last_exc
 
         row = response.data[0]
         return Message(

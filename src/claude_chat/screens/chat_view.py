@@ -26,6 +26,7 @@ class ChatView(Screen):
     def __init__(self, user_id: str, claude_id: str) -> None:
         self.other_user_id = user_id
         self.other_claude_id = claude_id
+        self._last_message_count = 0
         super().__init__()
 
     def compose(self) -> ComposeResult:
@@ -35,12 +36,22 @@ class ChatView(Screen):
 
     def on_mount(self) -> None:
         self.load_messages()
+        self._poll_timer = self.set_interval(5, self._poll_messages)
+        self._last_message_count = 0
+
+    def on_unmount(self) -> None:
+        if hasattr(self, '_poll_timer') and self._poll_timer:
+            self._poll_timer.stop()
+
+    def _poll_messages(self) -> None:
+        """Poll for new messages every 5 seconds."""
+        self.load_messages()
 
     # ------------------------------------------------------------------
     # Message loading
     # ------------------------------------------------------------------
 
-    @work(thread=True)
+    @work(thread=True, exclusive=True)
     def load_messages(self) -> None:
         """Fetch conversation history and mark unread as read."""
         client = self.app.client
@@ -55,6 +66,12 @@ class ChatView(Screen):
 
         # Messages come newest-first; reverse for display
         messages.reverse()
+
+        # Skip re-render if nothing changed (avoids flicker during polling)
+        msg_count = len(messages)
+        if msg_count == self._last_message_count and msg_count > 0:
+            return
+        self._last_message_count = msg_count
 
         # Mark unread messages as read
         unread_ids = [
