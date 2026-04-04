@@ -18,7 +18,10 @@ class ChatView(Screen):
     the Unread or Read tabs.
     """
 
-    BINDINGS = [("escape", "go_back", "Back")]
+    BINDINGS = [
+        ("escape", "go_back", "Back"),
+        ("f2", "show_safety_number", "Verify"),
+    ]
 
     def __init__(self, user_id: str, claude_id: str) -> None:
         self.other_user_id = user_id
@@ -203,6 +206,19 @@ class ChatView(Screen):
     # ------------------------------------------------------------------
     # Navigation
     # ------------------------------------------------------------------
+
+    def action_show_safety_number(self) -> None:
+        """Display the safety number for this conversation."""
+        try:
+            safety_number = self.app.client.get_safety_number(self.other_user_id)
+            self.notify(
+                f"Safety number with {self.other_claude_id}:\n{safety_number}\n\n"
+                "Compare this with your contact to verify identity.",
+                severity="information",
+                timeout=15,
+            )
+        except Exception as exc:
+            self.notify(f"Could not generate safety number: {exc}", severity="error")
 
     def action_go_back(self) -> None:
         """Pop back to the main screen."""

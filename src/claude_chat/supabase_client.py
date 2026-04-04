@@ -19,6 +19,9 @@ from claude_chat.crypto import (
     public_key_from_bytes,
     encrypt_message,
     decrypt_message,
+    encrypt_message_ephemeral,
+    decrypt_message_ephemeral,
+    generate_safety_number,
 )
 from claude_chat.models import User, Message, ConnectionRequest
 
@@ -67,6 +70,8 @@ def _parse_dt(value: str | None) -> datetime | None:
 
 def _parse_message_row(row: dict) -> Message:
     """Parse a messages table row into a Message (without decryption)."""
+    epk_raw = row.get("ephemeral_public_key")
+    ephemeral_public_key = _bytes_from_db(epk_raw) if epk_raw is not None else None
     return Message(
         id=row["id"],
         sender_id=row["sender_id"],
@@ -75,6 +80,7 @@ def _parse_message_row(row: dict) -> Message:
         nonce=_bytes_from_db(row["nonce"]),
         is_read=row.get("is_read", False),
         created_at=_parse_dt(row.get("created_at")),
+        ephemeral_public_key=ephemeral_public_key,
     )
 
 
@@ -348,12 +354,17 @@ class ChatClient:
     # ------------------------------------------------------------------
 
     def send_message(self, receiver_id: str, plaintext: str) -> Message:
-        """Encrypt and send a message to a connected user."""
+        """Encrypt and send a message to a connected user.
+
+        Uses ephemeral sender keys for forward secrecy: a fresh X25519
+        keypair is generated per message, and the ephemeral private key
+        is discarded immediately after encryption.
+        """
         self._require_auth()
 
         receiver_pub = self._get_receiver_public_key(receiver_id)
-        ciphertext, nonce = encrypt_message(
-            self._private_key, receiver_pub, plaintext
+        ciphertext, nonce, ephemeral_pub_bytes = encrypt_message_ephemeral(
+            receiver_pub, plaintext
         )
 
         try:
@@ -365,6 +376,7 @@ class ChatClient:
                         "receiver_id": receiver_id,
                         "encrypted_content": _bytes_to_db(ciphertext),
                         "nonce": _bytes_to_db(nonce),
+                        "ephemeral_public_key": _bytes_to_db(ephemeral_pub_bytes),
                     }
                 )
                 .execute()
@@ -383,6 +395,7 @@ class ChatClient:
             created_at=_parse_dt(row.get("created_at")),
             plaintext=plaintext,
             sender_claude_id=self._claude_id,
+            ephemeral_public_key=ephemeral_pub_bytes,
         )
 
     def get_messages(
@@ -416,10 +429,18 @@ class ChatClient:
         for row in response.data:
             msg = _parse_message_row(row)
             try:
-                msg.plaintext = decrypt_message(
-                    self._private_key, other_pub,
-                    msg.encrypted_content, msg.nonce,
-                )
+                if msg.ephemeral_public_key is not None:
+                    # Forward-secrecy message: use ephemeral key
+                    msg.plaintext = decrypt_message_ephemeral(
+                        self._private_key, msg.ephemeral_public_key,
+                        msg.encrypted_content, msg.nonce,
+                    )
+                else:
+                    # Legacy message: use sender's long-term public key
+                    msg.plaintext = decrypt_message(
+                        self._private_key, other_pub,
+                        msg.encrypted_content, msg.nonce,
+                    )
             except Exception:
                 msg.plaintext = "[decryption failed]"
             messages.append(msg)
@@ -448,12 +469,20 @@ class ChatClient:
 
             # Decrypt
             try:
-                sender_pub_bytes = _bytes_from_db(sender_info["public_key"])
-                sender_pub = public_key_from_bytes(sender_pub_bytes)
-                msg.plaintext = decrypt_message(
-                    self._private_key, sender_pub,
-                    msg.encrypted_content, msg.nonce,
-                )
+                if msg.ephemeral_public_key is not None:
+                    # Forward-secrecy message: use ephemeral key
+                    msg.plaintext = decrypt_message_ephemeral(
+                        self._private_key, msg.ephemeral_public_key,
+                        msg.encrypted_content, msg.nonce,
+                    )
+                else:
+                    # Legacy message: use sender's long-term public key
+                    sender_pub_bytes = _bytes_from_db(sender_info["public_key"])
+                    sender_pub = public_key_from_bytes(sender_pub_bytes)
+                    msg.plaintext = decrypt_message(
+                        self._private_key, sender_pub,
+                        msg.encrypted_content, msg.nonce,
+                    )
             except Exception:
                 msg.plaintext = "[decryption failed]"
 
@@ -491,6 +520,18 @@ class ChatClient:
             .execute()
         )
         return response.count or 0
+
+    # ------------------------------------------------------------------
+    # Safety numbers
+    # ------------------------------------------------------------------
+
+    def get_safety_number(self, other_user_id: str) -> str:
+        """Get the safety number for a conversation with another user."""
+        self._require_auth()
+        my_pub = get_public_key_bytes(self._private_key)
+        other_pub = self._get_receiver_public_key(other_user_id)
+        other_pub_bytes = bytes(other_pub)
+        return generate_safety_number(my_pub, other_pub_bytes)
 
     # ------------------------------------------------------------------
     # Public key helper
@@ -536,11 +577,19 @@ class ChatClient:
                 msg = _parse_message_row(row)
                 # Decrypt the message
                 try:
-                    sender_pub = self._get_receiver_public_key(msg.sender_id)
-                    msg.plaintext = decrypt_message(
-                        self._private_key, sender_pub,
-                        msg.encrypted_content, msg.nonce,
-                    )
+                    if msg.ephemeral_public_key is not None:
+                        # Forward-secrecy message: use ephemeral key
+                        msg.plaintext = decrypt_message_ephemeral(
+                            self._private_key, msg.ephemeral_public_key,
+                            msg.encrypted_content, msg.nonce,
+                        )
+                    else:
+                        # Legacy message: use sender's long-term public key
+                        sender_pub = self._get_receiver_public_key(msg.sender_id)
+                        msg.plaintext = decrypt_message(
+                            self._private_key, sender_pub,
+                            msg.encrypted_content, msg.nonce,
+                        )
                 except Exception:
                     msg.plaintext = "[decryption failed]"
                 callback(msg)

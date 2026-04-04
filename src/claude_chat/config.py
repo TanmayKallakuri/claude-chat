@@ -17,6 +17,9 @@ MIN_PASSPHRASE_LENGTH = 8
 # KDF version (for future migration)
 CURRENT_KDF_VERSION = 1
 
+# Session expiry
+SESSION_EXPIRY_DAYS = 7
+
 
 def ensure_chat_dir() -> Path:
     """Create ~/.claude/chat/ if it doesn't exist. Return the path."""

@@ -61,6 +61,29 @@ def encrypt_message(
     return ciphertext, nonce
 
 
+def generate_safety_number(public_key_a: bytes, public_key_b: bytes) -> str:
+    """Generate a safety number from two public keys.
+
+    The safety number is the same regardless of which key is "a" or "b"
+    (we sort them first). This produces a 60-digit number split into
+    12 groups of 5 digits, like Signal does.
+    """
+    # Sort keys so order doesn't matter
+    keys = sorted([public_key_a, public_key_b])
+    combined = keys[0] + keys[1]
+
+    # Hash with SHA-512 for enough bits
+    digest = hashlib.sha512(combined).digest()
+
+    # Convert first 30 bytes to decimal digits (60 digits)
+    number = int.from_bytes(digest[:30], "big")
+    digits = str(number).zfill(60)[:60]
+
+    # Format as 12 groups of 5
+    groups = [digits[i:i+5] for i in range(0, 60, 5)]
+    return " ".join(groups)
+
+
 def decrypt_message(
     receiver_private: PrivateKey,
     sender_public: PublicKey,
@@ -71,3 +94,43 @@ def decrypt_message(
     box = Box(receiver_private, sender_public)
     plaintext_bytes = box.decrypt(ciphertext, nonce)
     return plaintext_bytes.decode("utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Forward secrecy: ephemeral sender keys
+# ---------------------------------------------------------------------------
+
+
+def encrypt_message_ephemeral(
+    receiver_public: PublicKey, plaintext: str
+) -> tuple[bytes, bytes, bytes]:
+    """Encrypt with a fresh ephemeral keypair for forward secrecy.
+
+    Returns (ciphertext, nonce, ephemeral_public_key_bytes).
+    The ephemeral private key exists only in this function scope
+    and is garbage collected after return.
+    """
+    ephemeral_private = PrivateKey.generate()
+    ephemeral_public_bytes = bytes(ephemeral_private.public_key)
+
+    box = Box(ephemeral_private, receiver_public)
+    encrypted = box.encrypt(plaintext.encode("utf-8"))
+
+    # ephemeral_private goes out of scope and is garbage collected
+    return encrypted.ciphertext, encrypted.nonce, ephemeral_public_bytes
+
+
+def decrypt_message_ephemeral(
+    receiver_private: PrivateKey,
+    ephemeral_public_bytes: bytes,
+    ciphertext: bytes,
+    nonce: bytes,
+) -> str:
+    """Decrypt a message that was encrypted with an ephemeral key.
+
+    The receiver uses their long-term private key + the sender's
+    ephemeral public key (included with the message).
+    """
+    ephemeral_public = PublicKey(ephemeral_public_bytes)
+    box = Box(receiver_private, ephemeral_public)
+    return box.decrypt(ciphertext, nonce).decode("utf-8")

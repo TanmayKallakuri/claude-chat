@@ -140,9 +140,11 @@ class Message:
     plaintext: str | None = None
     # Optional: sender info
     sender_claude_id: str | None = None
+    # Forward secrecy: ephemeral public key (None for legacy messages)
+    ephemeral_public_key: bytes | None = None
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "id": self.id,
             "sender_id": self.sender_id,
             "receiver_id": self.receiver_id,
@@ -151,9 +153,13 @@ class Message:
             "is_read": self.is_read,
             "created_at": _dt_to_str(self.created_at),
         }
+        if self.ephemeral_public_key is not None:
+            d["ephemeral_public_key"] = _bytes_to_b64(self.ephemeral_public_key)
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> Message:
+        epk = data.get("ephemeral_public_key")
         return cls(
             id=data["id"],
             sender_id=data["sender_id"],
@@ -164,4 +170,5 @@ class Message:
             created_at=_str_to_dt(data.get("created_at")),
             plaintext=data.get("plaintext"),
             sender_claude_id=data.get("sender_claude_id"),
+            ephemeral_public_key=_b64_to_bytes(epk) if epk is not None else None,
         )
