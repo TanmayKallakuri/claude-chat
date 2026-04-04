@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from textual import on, work
 from textual.message import Message as TMessage
-from textual.widget import Widget
+from textual.containers import Container
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
 
-class UnreadList(Widget):
+class UnreadList(Container):
     """Shows unread messages grouped by sender.
 
     Each item displays the sender's claude_id, unread count, and latest
@@ -45,6 +45,10 @@ class UnreadList(Widget):
             self.user_id = user_id
             self.claude_id = claude_id
             super().__init__()
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._user_map: dict = {}
 
     def compose(self):
         yield Static("All caught up! No unread messages.", id="unread-empty")

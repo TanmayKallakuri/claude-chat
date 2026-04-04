@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from textual import on, work
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widget import Widget
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Button, Input, Label, Static
 
 
-class SearchPanel(Widget):
+class SearchPanel(Container):
     """Search for users and send friend requests.
 
     Contains a search input, results list with Send Request buttons,

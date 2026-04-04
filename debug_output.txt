@@ -1,0 +1,10 @@
+SearchPanel size: Size(width=80, height=0)
+SearchPanel region: Region(x=0, y=3, width=80, height=0)
+SearchPanel display: True
+SearchPanel visible: True
+  search-input: size=Size(width=74, height=1) display=True visible=True
+  search-status: size=Size(width=80, height=1) display=True visible=True
+  search-results: size=Size(width=80, height=1) display=True visible=True
+  rate-limit: size=Size(width=80, height=1) display=True visible=True
+TabPane size: Size(width=80, height=0)
+TabPane display: True

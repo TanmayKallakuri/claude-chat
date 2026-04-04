@@ -9,7 +9,13 @@ def _bytes_to_b64(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")
 
 
-def _b64_to_bytes(data: str) -> bytes:
+def _b64_to_bytes(data) -> bytes:
+    if data is None:
+        raise ValueError("Expected base64 string, got None")
+    if isinstance(data, bytes):
+        return data
+    if not isinstance(data, str):
+        raise ValueError(f"Expected base64 string, got {type(data).__name__}")
     return base64.b64decode(data)
 
 
@@ -22,6 +28,9 @@ def _dt_to_str(dt: datetime | None) -> str | None:
 def _str_to_dt(s: str | None) -> datetime | None:
     if s is None:
         return None
+    if isinstance(s, datetime):
+        return s
+    s = s.replace("Z", "+00:00")
     return datetime.fromisoformat(s)
 
 
@@ -114,7 +123,7 @@ class Connection:
             user_a=data["user_a"],
             user_b=data["user_b"],
             created_at=_str_to_dt(data.get("created_at")),
-            other_user=User.from_dict(other_user_data) if other_user_data else None,
+            other_user=User.from_dict(other_user_data) if isinstance(other_user_data, dict) else None,
         )
 
 
@@ -141,8 +150,6 @@ class Message:
             "nonce": _bytes_to_b64(self.nonce),
             "is_read": self.is_read,
             "created_at": _dt_to_str(self.created_at),
-            "plaintext": self.plaintext,
-            "sender_claude_id": self.sender_claude_id,
         }
 
     @classmethod

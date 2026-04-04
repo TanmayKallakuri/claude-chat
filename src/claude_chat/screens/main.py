@@ -66,7 +66,19 @@ class MainScreen(Screen):
         self.load_data()
         self._start_realtime()
         # Polling fallback every 10 seconds in case realtime drops
-        self.set_interval(10, self.load_data)
+        self._poll_timer = self.set_interval(10, self.load_data)
+
+    def on_unmount(self) -> None:
+        """Clean up timer and subscriptions."""
+        if hasattr(self, '_poll_timer') and self._poll_timer:
+            self._poll_timer.stop()
+        # Clean up realtime subscriptions
+        client = getattr(self.app, 'client', None)
+        if client and hasattr(client, 'unsubscribe_all'):
+            try:
+                client.unsubscribe_all()
+            except Exception:
+                pass
 
     def on_screen_resume(self) -> None:
         """Refresh data when returning from ChatView."""
@@ -99,16 +111,14 @@ class MainScreen(Screen):
         """Process an incoming realtime message on the main thread."""
         from claude_chat.screens.chat_view import ChatView
 
-        # If the active screen is ChatView for this sender, append the message there
-        current = self.app.screen
-        if (
-            isinstance(current, ChatView)
-            and current.other_user_id == msg.sender_id
-        ):
-            current.append_realtime_message(msg)
-        else:
-            # Otherwise just refresh unread data
-            self.load_data()
+        try:
+            current = self.app.screen
+            if isinstance(current, ChatView) and current.other_user_id == msg.sender_id:
+                current.append_realtime_message(msg)
+                return
+        except Exception:
+            pass
+        self.load_data()
 
     def _on_realtime_request(self, req) -> None:
         """Callback fired by Supabase Realtime on new friend request."""
@@ -119,7 +129,7 @@ class MainScreen(Screen):
     # Data loading
     # ------------------------------------------------------------------
 
-    @work(thread=True)
+    @work(thread=True, exclusive=True)
     def load_data(self) -> None:
         """Fetch data from Supabase in a worker thread."""
         client = self.app.client
@@ -220,8 +230,8 @@ class MainScreen(Screen):
         self.load_data()
 
     def action_back(self) -> None:
-        """Return to login screen."""
-        self.app.pop_screen()
+        """Quit the application."""
+        self.app.exit()
 
     # ------------------------------------------------------------------
     # Chat navigation — handle OpenChat from child widgets

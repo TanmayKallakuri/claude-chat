@@ -10,7 +10,6 @@ mitigate the risk on Unix systems. On Windows, we rely on user-directory ACLs.
 
 import json
 import os
-import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,11 +35,14 @@ def save_session(session: Session) -> None:
         "passphrase": session.passphrase,
         "user_id": session.user_id,
     }
-    SESSION_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-    # Restrict permissions on Unix (no-op concept on Windows)
-    if os.name != "nt":
-        SESSION_FILE.chmod(stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+    tmp = SESSION_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    os.replace(str(tmp), str(SESSION_FILE))
+    # Set file permissions on Unix
+    try:
+        SESSION_FILE.chmod(0o600)
+    except OSError:
+        pass
 
 
 def load_session() -> Session | None:

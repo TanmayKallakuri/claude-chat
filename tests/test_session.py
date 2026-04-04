@@ -79,3 +79,15 @@ def test_session_with_user_id_none(tmp_path):
     session_file = tmp_path / "session.json"
     data = json.loads(session_file.read_text(encoding="utf-8"))
     assert data["user_id"] is None
+
+
+def test_save_creates_file_with_correct_keys(tmp_path):
+    """save_session creates JSON with exactly the expected keys."""
+    save_session(Session(claude_id="tk", passphrase="pw", user_id="uid"))
+    session_file = tmp_path / "session.json"
+    assert session_file.exists()
+    data = json.loads(session_file.read_text(encoding="utf-8"))
+    assert set(data.keys()) == {"claude_id", "passphrase", "user_id"}
+    assert data["claude_id"] == "tk"
+    assert data["passphrase"] == "pw"
+    assert data["user_id"] == "uid"

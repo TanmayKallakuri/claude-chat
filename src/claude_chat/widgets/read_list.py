@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from textual import on
 from textual.message import Message as TMessage
-from textual.widget import Widget
+from textual.containers import Container
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
 
-class ReadList(Widget):
+class ReadList(Container):
     """Shows all connections with last message preview.
 
     tanmay_k -- hey check this out -- 2m ago
@@ -47,6 +47,10 @@ class ReadList(Widget):
             self.user_id = user_id
             self.claude_id = claude_id
             super().__init__()
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._user_map: dict = {}
 
     def compose(self):
         yield Static("No connections yet. Search for friends to get started!", id="read-empty")

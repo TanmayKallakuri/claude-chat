@@ -69,7 +69,10 @@ class ChatView(Screen):
 
     def _render_messages(self, messages: list) -> None:
         """Mount MessageLine widgets into the scroll container."""
-        container = self.query_one("#message-container", VerticalScroll)
+        try:
+            container = self.query_one("#message-container", VerticalScroll)
+        except Exception:
+            return  # Screen may have been popped
         container.remove_children()
 
         if not messages:
@@ -81,7 +84,7 @@ class ChatView(Screen):
             )
             return
 
-        my_id = self.app.client._user_id
+        my_id = self.app.client.user_id
 
         for msg in messages:
             timestamp = ""
@@ -89,7 +92,7 @@ class ChatView(Screen):
                 timestamp = msg.created_at.strftime("%H:%M")
 
             is_self = msg.sender_id == my_id
-            sender = self.app.client._claude_id if is_self else self.other_claude_id
+            sender = self.app.client.claude_id if is_self else self.other_claude_id
             text = msg.plaintext or "[encrypted]"
 
             container.mount(
@@ -132,7 +135,10 @@ class ChatView(Screen):
 
     def _append_message(self, msg) -> None:
         """Add a sent message to the container and scroll down."""
-        container = self.query_one("#message-container", VerticalScroll)
+        try:
+            container = self.query_one("#message-container", VerticalScroll)
+        except Exception:
+            return  # Screen may have been popped
 
         # Remove empty-chat placeholder if present
         try:
@@ -148,7 +154,7 @@ class ChatView(Screen):
         container.mount(
             MessageLine(
                 timestamp=timestamp,
-                sender=self.app.client._claude_id,
+                sender=self.app.client.claude_id,
                 text=msg.plaintext or "",
                 is_self=True,
             )
@@ -164,7 +170,10 @@ class ChatView(Screen):
 
         Called from MainScreen._handle_realtime_message on the main thread.
         """
-        container = self.query_one("#message-container", VerticalScroll)
+        try:
+            container = self.query_one("#message-container", VerticalScroll)
+        except Exception:
+            return  # Screen no longer mounted
 
         timestamp = ""
         if msg.created_at is not None:

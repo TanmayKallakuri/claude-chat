@@ -1,9 +1,16 @@
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
-from claude_chat.models import Connection, ConnectionRequest, Message, User
+from claude_chat.models import (
+    Connection,
+    ConnectionRequest,
+    Message,
+    User,
+    _b64_to_bytes,
+    _str_to_dt,
+)
 
 
 class TestUser:
@@ -140,7 +147,8 @@ class TestMessage:
             plaintext="hello",
             sender_claude_id="alice",
         )
-        restored = Message.from_dict(msg.to_dict())
+        data = msg.to_dict()
+        restored = Message.from_dict(data)
         assert restored.id == msg.id
         assert restored.sender_id == msg.sender_id
         assert restored.receiver_id == msg.receiver_id
@@ -148,8 +156,6 @@ class TestMessage:
         assert restored.nonce == msg.nonce
         assert restored.is_read == msg.is_read
         assert restored.created_at == msg.created_at
-        assert restored.plaintext == msg.plaintext
-        assert restored.sender_claude_id == msg.sender_claude_id
 
     def test_bytes_base64(self):
         content = b"\xff\xfe\xfd"
@@ -193,8 +199,8 @@ class TestMessage:
         )
         data = msg.to_dict()
         assert data["created_at"] is None
-        assert data["plaintext"] is None
-        assert data["sender_claude_id"] is None
+        assert "plaintext" not in data
+        assert "sender_claude_id" not in data
         restored = Message.from_dict(data)
         assert restored.created_at is None
         assert restored.plaintext is None
@@ -212,3 +218,73 @@ class TestMessage:
         assert msg.created_at is None
         assert msg.plaintext is None
         assert msg.sender_claude_id is None
+
+    def test_to_dict_excludes_plaintext_and_sender_claude_id(self):
+        msg = Message(
+            id="m1",
+            sender_id="u1",
+            receiver_id="u2",
+            encrypted_content=b"x",
+            nonce=b"n",
+            plaintext="secret",
+            sender_claude_id="alice",
+        )
+        data = msg.to_dict()
+        assert "plaintext" not in data
+        assert "sender_claude_id" not in data
+
+
+class TestB64ToBytes:
+    def test_none_raises_value_error(self):
+        with pytest.raises(ValueError, match="got None"):
+            _b64_to_bytes(None)
+
+    def test_non_string_raises_value_error(self):
+        with pytest.raises(ValueError, match="got int"):
+            _b64_to_bytes(42)
+
+    def test_bytes_passthrough(self):
+        assert _b64_to_bytes(b"\x01\x02") == b"\x01\x02"
+
+    def test_valid_base64_string(self):
+        encoded = base64.b64encode(b"hello").decode("ascii")
+        assert _b64_to_bytes(encoded) == b"hello"
+
+
+class TestStrToDt:
+    def test_timezone_aware_string(self):
+        result = _str_to_dt("2026-04-03T12:00:00+00:00")
+        assert result == datetime(2026, 4, 3, 12, 0, 0, tzinfo=timezone.utc)
+
+    def test_z_suffix(self):
+        result = _str_to_dt("2026-04-03T12:00:00Z")
+        assert result == datetime(2026, 4, 3, 12, 0, 0, tzinfo=timezone.utc)
+
+    def test_datetime_passthrough(self):
+        dt = datetime(2026, 1, 1)
+        assert _str_to_dt(dt) is dt
+
+    def test_none_returns_none(self):
+        assert _str_to_dt(None) is None
+
+
+class TestConnectionFromDictOtherUser:
+    def test_non_dict_other_user_does_not_crash(self):
+        data = {
+            "id": "c1",
+            "user_a": "u1",
+            "user_b": "u2",
+            "other_user": "not-a-dict",
+        }
+        conn = Connection.from_dict(data)
+        assert conn.other_user is None
+
+    def test_integer_other_user_does_not_crash(self):
+        data = {
+            "id": "c1",
+            "user_a": "u1",
+            "user_b": "u2",
+            "other_user": 123,
+        }
+        conn = Connection.from_dict(data)
+        assert conn.other_user is None

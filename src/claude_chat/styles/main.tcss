@@ -1,13 +1,16 @@
 TabbedContent {
     background: #191919;
+    height: 1fr;
 }
 
 TabPane {
     background: #191919;
     padding: 0;
+    height: 1fr;
 }
 
 ContentSwitcher {
+    height: 1fr;
     background: #191919;
 }
 

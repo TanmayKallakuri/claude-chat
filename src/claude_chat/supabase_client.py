@@ -25,14 +25,16 @@ from claude_chat.models import User, Message, ConnectionRequest
 
 def _bytes_from_db(value) -> bytes:
     """Convert a BYTEA value from Supabase (hex string with \\x prefix) to bytes."""
+    if value is None:
+        raise ValueError("DB returned null for a required bytes field")
     if isinstance(value, bytes):
         return value
     if isinstance(value, str):
-        # Supabase returns BYTEA as hex string like "\\x..." or "\x..."
-        if value.startswith("\\x"):
-            return bytes.fromhex(value[2:])
+        # Check longer prefix first to avoid shadowing
         if value.startswith("\\\\x"):
             return bytes.fromhex(value[3:])
+        if value.startswith("\\x"):
+            return bytes.fromhex(value[2:])
         # Try plain hex
         try:
             return bytes.fromhex(value)
@@ -153,6 +155,11 @@ class ChatClient:
                 }
             ).execute()
         except Exception as exc:
+            # Clean up orphaned auth user
+            try:
+                self._supabase.auth.sign_out()
+            except Exception:
+                pass  # Best effort cleanup
             raise ValueError(f"Failed to create user profile: {exc}") from exc
 
         self._user_id = user_id
@@ -180,10 +187,22 @@ class ChatClient:
         if user is None:
             raise ValueError("Login failed: invalid credentials")
 
-        self._user_id = user.id
+        user_id = user.id
+
+        # Verify users row exists
+        try:
+            user_row = self._supabase.table("users").select("id").eq("id", user_id).execute()
+            if not user_row.data:
+                raise ValueError("Account incomplete — please register again")
+        except Exception as exc:
+            if "incomplete" in str(exc):
+                raise
+            raise ValueError(f"Login failed: {exc}") from exc
+
+        self._user_id = user_id
         self._claude_id = claude_id
         self._private_key = derive_keypair(passphrase, claude_id)
-        return user.id
+        return user_id
 
     # ------------------------------------------------------------------
     # Users
@@ -280,9 +299,13 @@ class ChatClient:
 
         status = "accepted" if accept else "rejected"
         try:
-            self._supabase.table("requests").update({"status": status}).eq(
+            response = self._supabase.table("requests").update({"status": status}).eq(
                 "id", request_id
             ).eq("receiver_id", self._user_id).execute()
+            if not response.data:
+                raise ValueError("Request not found or already responded to")
+        except ValueError:
+            raise
         except Exception as exc:
             raise RuntimeError(f"Failed to update request: {exc}") from exc
 
@@ -393,18 +416,10 @@ class ChatClient:
         for row in response.data:
             msg = _parse_message_row(row)
             try:
-                if msg.sender_id == self._user_id:
-                    # We sent this: decrypt with our private key + their public key
-                    msg.plaintext = decrypt_message(
-                        self._private_key, other_pub,
-                        msg.encrypted_content, msg.nonce,
-                    )
-                else:
-                    # They sent this: decrypt with our private key + their public key
-                    msg.plaintext = decrypt_message(
-                        self._private_key, other_pub,
-                        msg.encrypted_content, msg.nonce,
-                    )
+                msg.plaintext = decrypt_message(
+                    self._private_key, other_pub,
+                    msg.encrypted_content, msg.nonce,
+                )
             except Exception:
                 msg.plaintext = "[decryption failed]"
             messages.append(msg)
@@ -532,8 +547,9 @@ class ChatClient:
             except Exception:
                 pass  # Don't crash the subscription on parse errors
 
-        (
-            self._supabase.realtime.channel("messages")
+        channel_name = f"messages:{self._user_id}"
+        channel = (
+            self._supabase.realtime.channel(channel_name)
             .on_postgres_changes(
                 event="INSERT",
                 schema="public",
@@ -543,6 +559,7 @@ class ChatClient:
             )
             .subscribe()
         )
+        self._message_channel = channel
 
     def subscribe_requests(self, callback: Callable[[ConnectionRequest], None]) -> None:
         """Subscribe to new incoming friend requests via Supabase Realtime.
@@ -561,8 +578,9 @@ class ChatClient:
             except Exception:
                 pass  # Don't crash the subscription on parse errors
 
-        (
-            self._supabase.realtime.channel("requests")
+        channel_name = f"requests:{self._user_id}"
+        channel = (
+            self._supabase.realtime.channel(channel_name)
             .on_postgres_changes(
                 event="INSERT",
                 schema="public",
@@ -572,6 +590,30 @@ class ChatClient:
             )
             .subscribe()
         )
+        self._request_channel = channel
+
+    def unsubscribe_all(self) -> None:
+        """Clean up realtime subscriptions."""
+        for channel in [getattr(self, '_message_channel', None), getattr(self, '_request_channel', None)]:
+            if channel is not None:
+                try:
+                    self._supabase.realtime.remove_channel(channel)
+                except Exception:
+                    pass
+        self._message_channel = None
+        self._request_channel = None
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def user_id(self) -> str | None:
+        return self._user_id
+
+    @property
+    def claude_id(self) -> str | None:
+        return self._claude_id
 
     # ------------------------------------------------------------------
     # Internal helpers

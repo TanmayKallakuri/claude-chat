@@ -27,6 +27,7 @@ class LoginScreen(Screen):
     def __init__(self) -> None:
         super().__init__()
         self._mode: str = "register"  # "register" or "login"
+        self._submitting = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="login-container"):
@@ -119,6 +120,8 @@ class LoginScreen(Screen):
         self.query_one("#status", Label).update(text)
 
     def _handle_submit(self) -> None:
+        if self._submitting:
+            return
         claude_id = self.query_one("#input-claude-id", Input).value.strip()
         passphrase = self.query_one("#input-passphrase", Input).value
 
@@ -164,6 +167,7 @@ class LoginScreen(Screen):
     @work(thread=True)
     def _do_auth(self, claude_id: str, passphrase: str) -> None:
         """Run register/login in a background thread."""
+        self._submitting = True
         from claude_chat.session import Session, save_session
         from claude_chat.supabase_client import ChatClient
 
@@ -176,6 +180,7 @@ class LoginScreen(Screen):
                 user_id = client.login(claude_id, passphrase)
         except (ValueError, RuntimeError) as exc:
             self.app.call_from_thread(self._on_auth_failure, str(exc))
+            self._submitting = False  # Allow retry on failure
             return
 
         # Persist session
@@ -214,6 +219,8 @@ class LoginScreen(Screen):
 
     def _try_auto_login(self) -> None:
         """If a session file exists, pre-fill fields and attempt login."""
+        if self._submitting:
+            return
         from claude_chat.session import load_session
 
         session = load_session()

@@ -284,7 +284,7 @@ class TestRespondToRequest:
 
         mock_update = MagicMock()
         mock_update.eq.return_value = mock_update
-        mock_update.execute.return_value = MagicMock(data=[])
+        mock_update.execute.return_value = MagicMock(data=[{"id": "req-001", "status": "accepted"}])
         mock_table = MagicMock()
         mock_table.update.return_value = mock_update
         mock_sb.table.return_value = mock_table
@@ -300,7 +300,7 @@ class TestRespondToRequest:
 
         mock_update = MagicMock()
         mock_update.eq.return_value = mock_update
-        mock_update.execute.return_value = MagicMock(data=[])
+        mock_update.execute.return_value = MagicMock(data=[{"id": "req-001", "status": "rejected"}])
         mock_table = MagicMock()
         mock_table.update.return_value = mock_update
         mock_sb.table.return_value = mock_table

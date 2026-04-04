@@ -5,8 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from textual import on, work
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widget import Widget
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Label, Static
 
 
@@ -31,7 +30,7 @@ def _relative_time(dt: datetime | None) -> str:
     return f"{days}d ago"
 
 
-class RequestsPanel(Widget):
+class RequestsPanel(Container):
     """Shows incoming and outgoing friend requests.
 
     Incoming requests have Accept / Reject buttons.
