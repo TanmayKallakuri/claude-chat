@@ -30,11 +30,17 @@ $ claude-chat
 ## Getting started
 
 ```bash
-pip install claude-chat
-claude-chat
+pip install git+https://github.com/TanmayKallakuri/claude-chat.git
+python -m claude_chat
 ```
 
-On first launch, you'll pick a **claude_id** (your username) and a **passphrase**. The passphrase is used for login _and_ to derive your encryption keys — there's no password reset, so pick something you'll remember.
+On first launch, you'll be asked for a **Pusher secret** (get it from whoever invited you). Then pick a **claude_id** (your username) and a **passphrase**. The passphrase is used for login _and_ to derive your encryption keys — there's no password reset, so pick something you'll remember.
+
+**Keyboard shortcuts:**
+- `Ctrl+S` — send message
+- `F2` — verify contact (safety number)
+- `r` — refresh
+- `Esc` — back / quit
 
 ## Features
 
