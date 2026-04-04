@@ -1,13 +1,12 @@
 """Supabase client for claude-chat.
 
 Handles authentication, user management, friend requests, connections,
-encrypted messaging, and real-time subscriptions via Supabase.
+and encrypted messaging via Supabase. Real-time delivery uses Pusher.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Callable
 
 from nacl.public import PrivateKey, PublicKey
 from supabase import create_client, Client
@@ -114,6 +113,7 @@ class ChatClient:
         self._claude_id: str | None = None
         self._private_key: PrivateKey | None = None
         self._public_key_cache: dict[str, PublicKey] = {}  # user_id -> PublicKey
+        self._realtime = None
 
     # ------------------------------------------------------------------
     # Auth
@@ -261,6 +261,18 @@ class ChatClient:
             raise ValueError(f"Failed to send request: {exc}") from exc
 
         row = response.data[0]
+
+        # Notify receiver via Pusher (instant delivery)
+        if self._realtime:
+            self._realtime.publish_request(
+                target_user_id,
+                {
+                    "sender_id": self._user_id,
+                    "sender_claude_id": self._claude_id,
+                    "request_id": row["id"],
+                },
+            )
+
         return ConnectionRequest(
             id=row["id"],
             sender_id=row["sender_id"],
@@ -394,6 +406,18 @@ class ChatClient:
             raise RuntimeError(f"Failed to send message: {last_exc}") from last_exc
 
         row = response.data[0]
+
+        # Notify receiver via Pusher (instant delivery)
+        if self._realtime:
+            self._realtime.publish_message(
+                receiver_id,
+                {
+                    "sender_id": self._user_id,
+                    "sender_claude_id": self._claude_id,
+                    "message_id": row["id"],
+                },
+            )
+
         return Message(
             id=row["id"],
             sender_id=row["sender_id"],
@@ -568,98 +592,16 @@ class ChatClient:
         return pub_key
 
     # ------------------------------------------------------------------
-    # Realtime subscriptions
+    # Realtime (Pusher)
     # ------------------------------------------------------------------
 
-    def subscribe_messages(self, callback: Callable[[Message], None]) -> None:
-        """Subscribe to new incoming messages via Supabase Realtime.
+    @property
+    def realtime(self):
+        return self._realtime
 
-        callback receives a new Message with decrypted plaintext.
-        """
-        self._require_auth()
-
-        def _on_message(payload):
-            try:
-                row = payload.get("new", payload.get("record", {}))
-                if not row or not row.get("id"):
-                    return
-                msg = _parse_message_row(row)
-                # Decrypt the message
-                try:
-                    if msg.ephemeral_public_key is not None:
-                        # Forward-secrecy message: use ephemeral key
-                        msg.plaintext = decrypt_message_ephemeral(
-                            self._private_key, msg.ephemeral_public_key,
-                            msg.encrypted_content, msg.nonce,
-                        )
-                    else:
-                        # Legacy message: use sender's long-term public key
-                        sender_pub = self._get_receiver_public_key(msg.sender_id)
-                        msg.plaintext = decrypt_message(
-                            self._private_key, sender_pub,
-                            msg.encrypted_content, msg.nonce,
-                        )
-                except Exception:
-                    msg.plaintext = "[decryption failed]"
-                callback(msg)
-            except Exception:
-                pass  # Don't crash the subscription on parse errors
-
-        channel_name = f"messages:{self._user_id}"
-        channel = (
-            self._supabase.realtime.channel(channel_name)
-            .on_postgres_changes(
-                event="INSERT",
-                schema="public",
-                table="messages",
-                filter=f"receiver_id=eq.{self._user_id}",
-                callback=_on_message,
-            )
-            .subscribe()
-        )
-        self._message_channel = channel
-
-    def subscribe_requests(self, callback: Callable[[ConnectionRequest], None]) -> None:
-        """Subscribe to new incoming friend requests via Supabase Realtime.
-
-        callback receives a new ConnectionRequest.
-        """
-        self._require_auth()
-
-        def _on_request(payload):
-            try:
-                row = payload.get("new", payload.get("record", {}))
-                if not row or not row.get("id"):
-                    return
-                req = _parse_request_row(row)
-                callback(req)
-            except Exception:
-                pass  # Don't crash the subscription on parse errors
-
-        channel_name = f"requests:{self._user_id}"
-        channel = (
-            self._supabase.realtime.channel(channel_name)
-            .on_postgres_changes(
-                event="INSERT",
-                schema="public",
-                table="requests",
-                filter=f"receiver_id=eq.{self._user_id}",
-                callback=_on_request,
-            )
-            .subscribe()
-        )
-        self._request_channel = channel
-
-    def unsubscribe_all(self) -> None:
-        """Clean up realtime subscriptions."""
-        for channel in [getattr(self, '_message_channel', None), getattr(self, '_request_channel', None)]:
-            if channel is not None:
-                try:
-                    self._supabase.realtime.remove_channel(channel)
-                except Exception:
-                    pass
-        self._message_channel = None
-        self._request_channel = None
+    @realtime.setter
+    def realtime(self, client):
+        self._realtime = client
 
     # ------------------------------------------------------------------
     # Properties

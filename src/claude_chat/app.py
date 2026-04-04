@@ -22,6 +22,7 @@ class ClaudeChatApp(App):
 
     # Set by LoginScreen after successful auth; other screens read this.
     client = None  # type: ignore[assignment]
+    realtime = None  # RealtimeClient, set after login
 
     def on_mount(self) -> None:
         """Check for existing session on startup."""

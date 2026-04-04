@@ -189,6 +189,13 @@ class LoginScreen(Screen):
         # Store client on the app so other screens can use it
         self.app.client = client  # type: ignore[attr-defined]
 
+        # Initialize Pusher-based realtime client
+        from claude_chat.realtime import RealtimeClient
+
+        rt = RealtimeClient(user_id=user_id)
+        client.realtime = rt
+        rt.connect()
+
         self.app.call_from_thread(self._on_auth_success, claude_id)
 
     def _on_auth_failure(self, message: str) -> None:

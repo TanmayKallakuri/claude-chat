@@ -20,6 +20,12 @@ CURRENT_KDF_VERSION = 1
 # Session expiry
 SESSION_EXPIRY_DAYS = 7
 
+# Pusher (real-time message delivery)
+PUSHER_APP_ID = "2136945"
+PUSHER_KEY = "289abe33362ab3faebd8"
+PUSHER_SECRET = "8086438850b5ee87cf8c"
+PUSHER_CLUSTER = "us3"
+
 
 def ensure_chat_dir() -> Path:
     """Create ~/.claude/chat/ if it doesn't exist. Return the path."""

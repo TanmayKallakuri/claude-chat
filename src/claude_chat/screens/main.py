@@ -13,7 +13,6 @@ from claude_chat.widgets.unread_list import UnreadList
 from claude_chat.widgets.read_list import ReadList
 from claude_chat.widgets.requests_panel import RequestsPanel
 from claude_chat.widgets.search_panel import SearchPanel
-from claude_chat.notifications import play_chime
 
 
 def _relative_time(dt: datetime | None) -> str:
@@ -61,67 +60,58 @@ class MainScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        """Load initial data for all tabs and start real-time subscriptions."""
+        """Load initial data for all tabs and set up Pusher callbacks."""
         self._unread_count = 0
         self.load_data()
-        self._start_realtime()
-        # Polling fallback every 10 seconds in case realtime drops
-        self._poll_timer = self.set_interval(10, self.load_data)
+        self._setup_pusher()
+        # Keep polling as a safety net, but less frequent (Pusher handles real-time)
+        self._poll_timer = self.set_interval(30, self.load_data)
 
     def on_unmount(self) -> None:
-        """Clean up timer and subscriptions."""
+        """Clean up timer."""
         if hasattr(self, '_poll_timer') and self._poll_timer:
             self._poll_timer.stop()
-        # Clean up realtime subscriptions
-        client = getattr(self.app, 'client', None)
-        if client and hasattr(client, 'unsubscribe_all'):
-            try:
-                client.unsubscribe_all()
-            except Exception:
-                pass
+        # Don't disconnect Pusher here — it stays connected across screen pops
 
     def on_screen_resume(self) -> None:
         """Refresh data when returning from ChatView."""
         self.load_data()
 
     # ------------------------------------------------------------------
-    # Realtime subscriptions
+    # Pusher event callbacks
     # ------------------------------------------------------------------
 
-    @work(thread=True)
-    def _start_realtime(self) -> None:
-        """Subscribe to incoming messages and friend requests via Supabase Realtime."""
-        client = self.app.client
-        try:
-            client.subscribe_messages(self._on_realtime_message)
-        except Exception:
-            pass
-        try:
-            client.subscribe_requests(self._on_realtime_request)
-        except Exception:
-            pass
+    def _setup_pusher(self) -> None:
+        """Register Pusher event callbacks."""
+        rt = getattr(self.app.client, 'realtime', None)
+        if rt:
+            rt.on_message(self._on_pusher_message)
+            rt.on_request(self._on_pusher_request)
 
-    def _on_realtime_message(self, msg) -> None:
-        """Callback fired by Supabase Realtime on new incoming message."""
+    def _on_pusher_message(self, data: dict) -> None:
+        """Called from Pusher's background thread when a message arrives."""
+        from claude_chat.notifications import play_chime
         play_chime("message")
-        # Check if ChatView for this sender is currently on screen
-        self.app.call_from_thread(self._handle_realtime_message, msg)
+        # Route to ChatView if it's the active screen and matches sender
+        self.app.call_from_thread(self._handle_incoming_message, data)
 
-    def _handle_realtime_message(self, msg) -> None:
-        """Process an incoming realtime message on the main thread."""
+    def _handle_incoming_message(self, data: dict) -> None:
+        """Handle incoming message on the main thread."""
         from claude_chat.screens.chat_view import ChatView
-
         try:
             current = self.app.screen
-            if isinstance(current, ChatView) and current.other_user_id == msg.sender_id:
-                current.append_realtime_message(msg)
+            if isinstance(current, ChatView) and current.other_user_id == data.get("sender_id"):
+                # Reload the chat to show new message
+                current.load_messages()
                 return
         except Exception:
             pass
+        # Not in the right chat — refresh unread list
         self.load_data()
 
-    def _on_realtime_request(self, req) -> None:
-        """Callback fired by Supabase Realtime on new friend request."""
+    def _on_pusher_request(self, data: dict) -> None:
+        """Called from Pusher's background thread when a request arrives."""
+        from claude_chat.notifications import play_chime
         play_chime("request")
         self.app.call_from_thread(self.load_data)
 

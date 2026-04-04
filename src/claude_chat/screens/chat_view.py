@@ -36,16 +36,6 @@ class ChatView(Screen):
 
     def on_mount(self) -> None:
         self.load_messages()
-        self._poll_timer = self.set_interval(5, self._poll_messages)
-        self._last_message_count = 0
-
-    def on_unmount(self) -> None:
-        if hasattr(self, '_poll_timer') and self._poll_timer:
-            self._poll_timer.stop()
-
-    def _poll_messages(self) -> None:
-        """Poll for new messages every 5 seconds."""
-        self.load_messages()
 
     # ------------------------------------------------------------------
     # Message loading
@@ -180,45 +170,6 @@ class ChatView(Screen):
             )
         )
         container.scroll_end(animate=False)
-
-    # ------------------------------------------------------------------
-    # Real-time incoming messages
-    # ------------------------------------------------------------------
-
-    def append_realtime_message(self, msg) -> None:
-        """Append a message received via realtime subscription and mark it read.
-
-        Called from MainScreen._handle_realtime_message on the main thread.
-        """
-        try:
-            container = self.query_one("#message-container", VerticalScroll)
-        except Exception:
-            return  # Screen no longer mounted
-
-        timestamp = ""
-        if msg.created_at is not None:
-            timestamp = msg.created_at.strftime("%H:%M")
-
-        container.mount(
-            MessageLine(
-                timestamp=timestamp,
-                sender=self.other_claude_id,
-                text=msg.plaintext or "[encrypted]",
-                is_self=False,
-            )
-        )
-        container.scroll_end(animate=False)
-
-        # Mark as read immediately since the chat is open
-        self._mark_ids_as_read([msg.id])
-
-    @work(thread=True)
-    def _mark_ids_as_read(self, message_ids: list[str]) -> None:
-        """Mark specific message IDs as read in a worker thread."""
-        try:
-            self.app.client.mark_as_read(message_ids)
-        except Exception:
-            pass
 
     # ------------------------------------------------------------------
     # Navigation
