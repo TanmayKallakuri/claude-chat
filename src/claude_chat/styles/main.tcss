@@ -1,0 +1,92 @@
+/* Main tabbed screen styles */
+
+MainScreen {
+    background: #1a1a2e;
+    color: #e0e0e0;
+}
+
+TabbedContent {
+    background: #1a1a2e;
+}
+
+TabPane {
+    background: #1a1a2e;
+    padding: 0;
+}
+
+ContentSwitcher {
+    background: #1a1a2e;
+}
+
+Tabs {
+    background: #1a1a2e;
+    dock: top;
+}
+
+Tab {
+    background: #1a1a2e;
+    color: #888888;
+    padding: 0 2;
+}
+
+Tab.-active {
+    color: #4ecca3;
+    text-style: bold;
+}
+
+Tab:hover {
+    color: #e0e0e0;
+}
+
+/* OptionList shared styling */
+OptionList {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    scrollbar-background: #1a1a2e;
+    scrollbar-color: #333333;
+}
+
+OptionList > .option-list--option-highlighted {
+    background: #2a2a4e;
+    color: #4ecca3;
+}
+
+OptionList > .option-list--option-hover {
+    background: #222244;
+}
+
+/* Request panel buttons */
+RequestsPanel Button.success,
+RequestsPanel Button.-success-variant {
+    background: #4ecca3;
+    color: #1a1a2e;
+}
+
+RequestsPanel Button.error,
+RequestsPanel Button.-error-variant {
+    background: #ff6b6b;
+    color: #1a1a2e;
+}
+
+/* Search panel */
+SearchPanel Button.-success-variant {
+    background: #4ecca3;
+    color: #1a1a2e;
+    min-width: 16;
+}
+
+SearchPanel Button:disabled {
+    opacity: 0.5;
+}
+
+/* Footer */
+Footer {
+    background: #0e0e1a;
+    color: #888888;
+}
+
+/* Header */
+Header {
+    background: #0e0e1a;
+    color: #4ecca3;
+}
