@@ -4,9 +4,9 @@ from pathlib import Path
 CHAT_DIR = Path.home() / ".claude" / "chat"
 SESSION_FILE = CHAT_DIR / "session.json"
 
-# Supabase — placeholders for now (will be filled when project is created)
-SUPABASE_URL = ""  # TODO: fill after Supabase project creation
-SUPABASE_ANON_KEY = ""  # TODO: fill after Supabase project creation
+# Supabase (anon key is publishable — RLS protects data)
+SUPABASE_URL = "https://mesdgreuqahudqxjhgkt.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lc2RncmV1cWFodWRxeGpoZ2t0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNzk3MjIsImV4cCI6MjA5MDg1NTcyMn0.cXtHEajae-Xj7icMdqMWnhQW6-rdxXyZKE5BmStT2Q0"
 
 # Constraints
 MAX_REQUESTS_PER_DAY = 3

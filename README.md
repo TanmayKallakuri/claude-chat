@@ -1,2 +1,84 @@
 # claude-chat
-Encrypted social chat for Claude Code users
+
+A CLI chat app that makes Claude Code social. Connect with friends, share what you're working on, and message in real-time — all from the terminal.
+
+## What it does
+
+- **Find friends** by their unique claude_id and send connection requests
+- **Chat in real-time** with end-to-end encrypted messages
+- **Stay in flow** — a lightweight TUI that feels like the terminal, not a web app
+- **Zero Claude API usage** — this is purely a social layer, no AI involved
+
+## How it works
+
+```
+$ claude-chat
+
+  ┌─────────────────────────────────────────┐
+  │  claude-chat v0.1.0                     │
+  │                                         │
+  │  [Unread] [Read] [Requests] [Search]    │
+  │                                         │
+  │  > tanmay_k: hey, check out this repo   │
+  │  > dev_friend: nice, sending a PR now   │
+  │  > you: looks good, merging             │
+  │                                         │
+  │  > _                                    │
+  └─────────────────────────────────────────┘
+```
+
+## Getting started
+
+```bash
+pip install claude-chat
+claude-chat
+```
+
+On first launch, you'll pick a **claude_id** (your username) and a **passphrase**. The passphrase is used for login _and_ to derive your encryption keys — there's no password reset, so pick something you'll remember.
+
+## Features
+
+| Feature | Details |
+|---------|---------|
+| Encryption | X25519 key exchange + XSalsa20-Poly1305 (via PyNaCl) |
+| Key derivation | Argon2id from your passphrase — private key never leaves your machine |
+| Messages | Text and links only — no images or videos |
+| Requests | 3 friend requests per day to prevent spam |
+| Notifications | Chime sound on new messages and requests |
+| Multi-device | Same claude_id + passphrase works on any machine |
+
+## Security model
+
+Your passphrase derives a deterministic X25519 keypair via Argon2id. The public key is stored on the server; the private key only exists in memory during your session. Messages are encrypted client-side before they touch the network — the server stores ciphertext it cannot read.
+
+**Tradeoffs to know about:**
+- Lose your passphrase = lose your account + message history (no recovery)
+- Session is cached locally (`~/.claude/chat/session.json`) for convenience
+- Passphrase cannot be changed in v1 (changing it would change your keys)
+
+## Tech stack
+
+- **Python 3.13** + **Textual** — terminal UI
+- **Supabase** — auth, database, realtime subscriptions
+- **PyNaCl** — libsodium bindings for encryption
+- **Argon2-cffi** — passphrase key derivation
+
+## Development
+
+```bash
+git clone https://github.com/TanmayKallakuri/claude-chat.git
+cd claude-chat
+pip install -e ".[dev]"
+pytest
+```
+
+## Status
+
+Building in public. Current progress:
+
+- [x] Phase 1: Foundation (crypto, models, config, session) — 35 tests
+- [ ] Phase 2: Supabase backend (schema, client, realtime)
+- [ ] Phase 3: TUI auth flow (register/login screens)
+- [ ] Phase 4: TUI main interface (tabs, chat view, widgets)
+- [ ] Phase 5: Real-time and notifications
+- [ ] Phase 6: Polish and packaging
