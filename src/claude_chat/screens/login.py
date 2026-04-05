@@ -192,7 +192,11 @@ class LoginScreen(Screen):
         # Initialize Pusher-based realtime client
         from claude_chat.realtime import RealtimeClient
 
-        rt = RealtimeClient(user_id=user_id)
+        # Get auth token for Edge Function calls
+        session = client._supabase.auth.get_session()
+        auth_token = session.access_token if session else None
+
+        rt = RealtimeClient(user_id=user_id, auth_token=auth_token)
         client.realtime = rt
         rt.connect()
 

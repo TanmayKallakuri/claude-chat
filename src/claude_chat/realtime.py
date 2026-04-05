@@ -1,19 +1,19 @@
-"""Real-time message delivery via Pusher Channels."""
+"""Real-time message delivery via Pusher Channels.
+
+Architecture:
+- Publishing: Supabase Edge Function (push-notify) triggers Pusher events
+  server-side. The Pusher secret never leaves the server.
+- Subscribing: pysher client SDK connects to Pusher using the publishable
+  key (no secret needed).
+"""
 
 import json
 import logging
-import threading
 from typing import Callable
 
-import pusher
 import pysher
 
-from claude_chat.config import (
-    PUSHER_APP_ID,
-    PUSHER_KEY,
-    PUSHER_SECRET,
-    PUSHER_CLUSTER,
-)
+from claude_chat.config import PUSHER_KEY, PUSHER_CLUSTER, SUPABASE_URL, SUPABASE_ANON_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -21,31 +21,19 @@ logger = logging.getLogger(__name__)
 class RealtimeClient:
     """Handles real-time message and request delivery via Pusher.
 
-    Architecture:
-    - Server SDK (`pusher`): triggers events on receiver's channel
-    - Client SDK (`pysher`): subscribes to own channel for incoming events
-
     Each user has a channel: `user-{user_id}`
     Events: `new-message`, `new-request`
     """
 
-    def __init__(self, user_id: str):
+    def __init__(self, user_id: str, auth_token: str | None = None):
         self._user_id = user_id
+        self._auth_token = auth_token  # Supabase JWT for calling Edge Function
         self._message_callbacks: list[Callable] = []
         self._request_callbacks: list[Callable] = []
         self._connected = False
         self._channel = None
 
-        # Server-side client for triggering events
-        self._server = pusher.Pusher(
-            app_id=PUSHER_APP_ID,
-            key=PUSHER_KEY,
-            secret=PUSHER_SECRET,
-            cluster=PUSHER_CLUSTER,
-            ssl=True,
-        )
-
-        # Client-side for subscribing to events
+        # Client-side only — no Pusher secret needed
         self._client = pysher.Pusher(
             key=PUSHER_KEY,
             cluster=PUSHER_CLUSTER,
@@ -62,7 +50,6 @@ class RealtimeClient:
         self._client.connect()
 
     def _on_connected(self, data: str) -> None:
-        """Called when websocket connection is established."""
         self._connected = True
         channel_name = f"user-{self._user_id}"
         self._channel = self._client.subscribe(channel_name)
@@ -71,12 +58,10 @@ class RealtimeClient:
         logger.info(f"Connected to Pusher, subscribed to {channel_name}")
 
     def _on_failed(self, data: str) -> None:
-        """Called when connection fails."""
         self._connected = False
         logger.warning("Pusher connection failed")
 
     def disconnect(self) -> None:
-        """Disconnect from Pusher."""
         try:
             self._client.disconnect()
         except Exception:
@@ -85,49 +70,58 @@ class RealtimeClient:
         self._channel = None
 
     # ------------------------------------------------------------------
-    # Publishing events (to other users)
+    # Publishing events via Supabase Edge Function (server-side)
     # ------------------------------------------------------------------
 
     def publish_message(self, receiver_id: str, message_data: dict) -> None:
-        """Push a new-message event to the receiver's channel.
-
-        message_data should contain: sender_id, sender_claude_id, message_id
-        (NOT the encrypted content — the receiver fetches that from Supabase)
-        """
-        try:
-            self._server.trigger(
-                f"user-{receiver_id}",
-                "new-message",
-                message_data,
-            )
-        except Exception as exc:
-            logger.warning(f"Failed to push message event: {exc}")
+        """Push a new-message event via the Edge Function."""
+        self._call_edge_function(
+            channel=f"user-{receiver_id}",
+            event="new-message",
+            data=message_data,
+        )
 
     def publish_request(self, receiver_id: str, request_data: dict) -> None:
-        """Push a new-request event to the receiver's channel."""
+        """Push a new-request event via the Edge Function."""
+        self._call_edge_function(
+            channel=f"user-{receiver_id}",
+            event="new-request",
+            data=request_data,
+        )
+
+    def _call_edge_function(self, channel: str, event: str, data: dict) -> None:
+        """Call the push-notify Edge Function to trigger a Pusher event."""
+        import urllib.request
+        import urllib.error
+
+        url = f"{SUPABASE_URL}/functions/v1/push-notify"
+        body = json.dumps({"channel": channel, "event": event, "data": data}).encode()
+
+        headers = {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+        }
+        if self._auth_token:
+            headers["Authorization"] = f"Bearer {self._auth_token}"
+
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
-            self._server.trigger(
-                f"user-{receiver_id}",
-                "new-request",
-                request_data,
-            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                resp.read()
         except Exception as exc:
-            logger.warning(f"Failed to push request event: {exc}")
+            logger.warning(f"Edge function call failed: {exc}")
 
     # ------------------------------------------------------------------
     # Subscribing to events (from other users)
     # ------------------------------------------------------------------
 
     def on_message(self, callback: Callable[[dict], None]) -> None:
-        """Register a callback for incoming message events."""
         self._message_callbacks.append(callback)
 
     def on_request(self, callback: Callable[[dict], None]) -> None:
-        """Register a callback for incoming request events."""
         self._request_callbacks.append(callback)
 
     def _handle_message(self, data: str) -> None:
-        """Internal handler for new-message events from Pusher."""
         try:
             payload = json.loads(data)
         except (json.JSONDecodeError, TypeError):
@@ -139,7 +133,6 @@ class RealtimeClient:
                 logger.warning(f"Message callback error: {exc}")
 
     def _handle_request(self, data: str) -> None:
-        """Internal handler for new-request events from Pusher."""
         try:
             payload = json.loads(data)
         except (json.JSONDecodeError, TypeError):

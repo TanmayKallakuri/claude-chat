@@ -38,11 +38,9 @@ CURRENT_KDF_VERSION = 1
 # Session expiry
 SESSION_EXPIRY_DAYS = 7
 
-# Pusher (key and cluster are publishable client-side values)
-PUSHER_APP_ID = os.environ.get("PUSHER_APP_ID", "2136945")
-PUSHER_KEY = os.environ.get("PUSHER_KEY", "289abe33362ab3faebd8")
-PUSHER_SECRET = os.environ.get("PUSHER_SECRET", "")  # must be set via .env
-PUSHER_CLUSTER = os.environ.get("PUSHER_CLUSTER", "us3")
+# Pusher (publishable client-side values only — secret lives in Edge Function)
+PUSHER_KEY = "289abe33362ab3faebd8"
+PUSHER_CLUSTER = "us3"
 
 
 def ensure_chat_dir() -> Path:
